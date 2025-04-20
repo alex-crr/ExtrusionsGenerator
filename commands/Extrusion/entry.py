@@ -30,8 +30,11 @@ PANEL_ID = 'SolidCreatePanel'            # Create panel
 COMMAND_BESIDE_ID = 'PrimitivePipe'      # Will be placed after the Pipe command
 IS_PROMOTED = True                       # Show in toolbar, not just in dropdown
 
-# Path to DXF files
-dxf_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'dxf_profiles')
+# Path to DXF files (parent directory)
+dxf_parent_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'dxf_profiles')
+
+# Series options
+SERIES_OPTIONS = ['2020', '3030', '4040']
 
 
 class CommandExecuteHandler(adsk.core.CommandEventHandler):
@@ -43,12 +46,17 @@ class CommandExecuteHandler(adsk.core.CommandEventHandler):
             eventArgs = adsk.core.CommandEventArgs.cast(args)
             inputs = eventArgs.command.commandInputs
 
+            # Get input values
+            seriesInput = inputs.itemById('series')
             profileInput = inputs.itemById('profile')
             lengthInput = inputs.itemById('length')
 
+            seriesName = seriesInput.selectedItem.name
             profileName = profileInput.selectedItem.name
             length = lengthInput.value
 
+            # Path to selected series subfolder
+            dxf_dir = os.path.join(dxf_parent_dir, seriesName)
             dxfPath = os.path.join(dxf_dir, f'{profileName}.dxf')
 
             if not os.path.exists(dxfPath):
@@ -70,8 +78,8 @@ class CommandExecuteHandler(adsk.core.CommandEventHandler):
             occ = rootComp.occurrences.addNewComponent(adsk.core.Matrix3D.create())
             comp = occ.component
             
-            # Updated naming convention: profile_type_length
-            comp.name = f"{profileName}_{int(length * 10)}"
+            # Updated naming convention: series_profile_type_length
+            comp.name = f"{seriesName}_{profileName}_{int(length * 10)}"
 
             # FIXED: Don't create a sketch directly - just get the XY plane reference
             xyPlane = comp.xYConstructionPlane
@@ -118,31 +126,22 @@ class CommandExecuteHandler(adsk.core.CommandEventHandler):
             distance = adsk.core.ValueInput.createByReal(length)
             extrude = extrudes.addSimple(prof, distance, adsk.fusion.FeatureOperations.NewBodyFeatureOperation)
             
-            # IMPROVED: Direct material assignment targeting Fusion Material Library
+            # Assign Aluminum material silently
             try:
-                # Get the Fusion Material Library directly by name
+                # Get the Fusion Material Library
                 materialLib = app.materialLibraries.itemByName('Fusion Material Library')
-                
                 if materialLib:
-                    debug_log(f"Found material library: {materialLib.name}")
-                    
-                    # First try to find Aluminum material
+                    # Try Aluminum first, then Gold as fallback
                     material = materialLib.materials.itemByName('Aluminum')
-                    
-                    # If not found, try Gold as a fallback (which should exist in all setups)
                     if not material:
                         material = materialLib.materials.itemByName('Gold')
                     
-                    # If found, apply to component silently
+                    # Apply material if found
                     if material:
                         comp.material = material
-                        debug_log(f"Applied {material.name} material to component")
-                else:
-                    debug_log("Could not find Fusion Material Library")
-                        
-            except Exception as e:
-                debug_log(f"Material assignment error: {str(e)}")
-                debug_log(traceback.format_exc())
+            except:
+                # Silently continue if material assignment fails
+                pass
             
             # IMPROVED: Timeline compression
             try:
@@ -163,6 +162,57 @@ class CommandExecuteHandler(adsk.core.CommandEventHandler):
                 ui.messageBox(f'Failed: {str(e)}\n\n{traceback.format_exc()}')
 
 
+# Handler for when inputs change
+class SeriesSelectionChangedHandler(adsk.core.InputChangedEventHandler):
+    def __init__(self):
+        super().__init__()
+        
+    def notify(self, args):
+        try:
+            # Get the input that triggered this event
+            changedInput = args.input
+            
+            # Only respond if the series dropdown was changed
+            if changedInput.id == 'series':
+                # Get the command inputs
+                inputs = args.inputs
+                
+                # Get both dropdowns
+                seriesInput = inputs.itemById('series')
+                profileInput = inputs.itemById('profile')
+                
+                # Clear profile dropdown
+                profileInput.listItems.clear()
+                
+                # Get selected series
+                selectedSeries = seriesInput.selectedItem.name
+                seriesDir = os.path.join(dxf_parent_dir, selectedSeries)
+                
+                # Check if series directory exists
+                if not os.path.exists(seriesDir):
+                    os.makedirs(seriesDir)
+                    ui.messageBox(f'Created series directory at: {seriesDir}\nPlease add your DXF profiles for {selectedSeries} series there.')
+                    return
+                
+                # Populate profile dropdown with DXF files from the selected series
+                dxf_files = [f for f in os.listdir(seriesDir) if f.endswith('.dxf')]
+                
+                if dxf_files:
+                    for filename in dxf_files:
+                        name = os.path.splitext(filename)[0]
+                        profileInput.listItems.add(name, False)
+                    
+                    # Select first item
+                    if profileInput.listItems.count > 0:
+                        profileInput.listItems.item(0).isSelected = True
+                else:
+                    ui.messageBox(f'No DXF files found in {seriesDir}. Please add your profile DXF files for {selectedSeries} series there.')
+                
+        except Exception as e:
+            if ui:
+                ui.messageBox(f'Failed: {str(e)}\n\n{traceback.format_exc()}')
+
+
 class CommandCreatedHandler(adsk.core.CommandCreatedEventHandler):
     def __init__(self):
         super().__init__()
@@ -172,37 +222,66 @@ class CommandCreatedHandler(adsk.core.CommandCreatedEventHandler):
             cmd = adsk.core.Command.cast(args.command)
             inputs = cmd.commandInputs
 
-            # Create DXF directory if it doesn't exist
-            if not os.path.exists(dxf_dir):
-                os.makedirs(dxf_dir)
-                ui.messageBox(f'Created DXF profiles directory at: {dxf_dir}\nPlease add your DXF profiles there.')
-                return
-
-            # Get list of DXF files
-            dxf_files = [f for f in os.listdir(dxf_dir) if f.endswith('.dxf')]
-            
-            if not dxf_files:
-                ui.messageBox(f'No DXF files found in {dxf_dir}. Please add your profile DXF files to this directory.')
-                return
-
-            # Create profile dropdown
-            dropdown = inputs.addDropDownCommandInput('profile', 'Profile', adsk.core.DropDownStyles.TextListDropDownStyle)
-            dropdownItems = dropdown.listItems
-            
-            for filename in dxf_files:
-                name = os.path.splitext(filename)[0]
-                dropdownItems.add(name, False)
+            # Create main dxf_profiles directory if it doesn't exist
+            if not os.path.exists(dxf_parent_dir):
+                os.makedirs(dxf_parent_dir)
                 
-            if dropdownItems.count > 0:
-                dropdownItems.item(0).isSelected = True
+                # Create series subfolders
+                for series in SERIES_OPTIONS:
+                    os.makedirs(os.path.join(dxf_parent_dir, series), exist_ok=True)
+                
+                ui.messageBox(f'Created DXF profiles directories at: {dxf_parent_dir}\nPlease add your DXF profiles to the appropriate series folders.')
+                return
 
+            # Create series dropdown
+            seriesDropdown = inputs.addDropDownCommandInput('series', 'Series', adsk.core.DropDownStyles.TextListDropDownStyle)
+            seriesItems = seriesDropdown.listItems
+            
+            # Add series options
+            for series in SERIES_OPTIONS:
+                seriesItems.add(series, False)
+            
+            # Select first series by default
+            if seriesItems.count > 0:
+                seriesItems.item(0).isSelected = True
+            
+            # Create profile dropdown (will be populated based on selected series)
+            profileDropdown = inputs.addDropDownCommandInput('profile', 'Profile', adsk.core.DropDownStyles.TextListDropDownStyle)
+            
             # Add length input
             inputs.addValueInput('length', 'Length (mm)', 'mm', adsk.core.ValueInput.createByReal(100))
+            
+            # Populate profile dropdown initially
+            selectedSeries = seriesItems.item(0).name
+            seriesDir = os.path.join(dxf_parent_dir, selectedSeries)
+            
+            # Create series directory if it doesn't exist
+            if not os.path.exists(seriesDir):
+                os.makedirs(seriesDir)
+                ui.messageBox(f'Created series directory at: {seriesDir}\nPlease add your DXF profiles for {selectedSeries} series there.')
+            else:
+                # Add profiles from selected series
+                dxf_files = [f for f in os.listdir(seriesDir) if f.endswith('.dxf')]
+                
+                if dxf_files:
+                    for filename in dxf_files:
+                        name = os.path.splitext(filename)[0]
+                        profileDropdown.listItems.add(name, False)
+                    
+                    if profileDropdown.listItems.count > 0:
+                        profileDropdown.listItems.item(0).isSelected = True
+                else:
+                    ui.messageBox(f'No DXF files found in {seriesDir}. Please add your profile DXF files for {selectedSeries} series there.')
 
-            # Add event handlers
+            # Add event handlers for command execution
             onExecute = CommandExecuteHandler()
             cmd.execute.add(onExecute)
             handlers.append(onExecute)
+            
+            # Add event handler for input changes - connect to the command, not the dropdown
+            onSeriesChanged = SeriesSelectionChangedHandler()
+            cmd.inputChanged.add(onSeriesChanged)
+            handlers.append(onSeriesChanged)
 
         except Exception as e:
             if ui:
