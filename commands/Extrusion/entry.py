@@ -14,6 +14,11 @@ app = adsk.core.Application.get()
 ui = app.userInterface
 handlers = []
 
+# Helper function for debug logging to Fusion 360
+def debug_log(message):
+    if config.DEBUG:
+        app.log(message)
+
 # Command identity information
 CMD_ID = f'{config.COMPANY_NAME}_{config.ADDIN_NAME}_extrusion'
 CMD_NAME = 'Aluminum Extrusion'
@@ -57,34 +62,40 @@ class CommandExecuteHandler(adsk.core.CommandEventHandler):
                 return
                 
             rootComp = design.rootComponent
+            
+            # Get the initial timeline marker - to know where we started
+            timeline = design.timeline
+            startingTimelineIndex = timeline.count - 1
+            
             occ = rootComp.occurrences.addNewComponent(adsk.core.Matrix3D.create())
             comp = occ.component
             
             # Updated naming convention: profile_type_length
             comp.name = f"{profileName}_{int(length * 10)}"
 
-            # Create a sketch on the XY plane
-            sketches = comp.sketches
+            # FIXED: Don't create a sketch directly - just get the XY plane reference
             xyPlane = comp.xYConstructionPlane
-            sketch = sketches.add(xyPlane)
-            sketch.name = profileName
             
-            # Use the ImportManager for more reliable DXF import
+            # Use the ImportManager for reliable DXF import - this will create one sketch
             importManager = app.importManager
             dxfOptions = importManager.createDXF2DImportOptions(dxfPath, xyPlane)
             importManager.importToTarget(dxfOptions, comp)
             
-            # Find the imported sketch (usually the last one created)
+            # Find the imported sketch
+            sketch = None
             for sk in comp.sketches:
-                if sk.name != profileName:  # Find the newly imported sketch
-                    sketch = sk
-                    sketch.name = profileName  # Rename it
-                    break
+                sketch = sk  # There should only be one sketch after import
+                sketch.name = profileName  # Rename it
+                break
+                
+            if not sketch:
+                ui.messageBox('Failed to import sketch from DXF file')
+                return
             
             # Wait for computation to complete
             adsk.doEvents()
             sketch.isComputeDeferred = False
-            adsk.doEvents()  # Give Fusion time to process
+            adsk.doEvents()
             
             # Check for profiles
             if sketch.profiles.count == 0:
@@ -107,7 +118,45 @@ class CommandExecuteHandler(adsk.core.CommandEventHandler):
             distance = adsk.core.ValueInput.createByReal(length)
             extrude = extrudes.addSimple(prof, distance, adsk.fusion.FeatureOperations.NewBodyFeatureOperation)
             
-            # Success message removed - extrusion created silently
+            # IMPROVED: Direct material assignment targeting Fusion Material Library
+            try:
+                # Get the Fusion Material Library directly by name
+                materialLib = app.materialLibraries.itemByName('Fusion Material Library')
+                
+                if materialLib:
+                    debug_log(f"Found material library: {materialLib.name}")
+                    
+                    # First try to find Aluminum material
+                    material = materialLib.materials.itemByName('Aluminum')
+                    
+                    # If not found, try Gold as a fallback (which should exist in all setups)
+                    if not material:
+                        material = materialLib.materials.itemByName('Gold')
+                    
+                    # If found, apply to component silently
+                    if material:
+                        comp.material = material
+                        debug_log(f"Applied {material.name} material to component")
+                else:
+                    debug_log("Could not find Fusion Material Library")
+                        
+            except Exception as e:
+                debug_log(f"Material assignment error: {str(e)}")
+                debug_log(traceback.format_exc())
+            
+            # IMPROVED: Timeline compression
+            try:
+                # Get the final timeline marker
+                endingTimelineIndex = timeline.count - 1
+                
+                # Only create a group if we have at least two operations
+                if endingTimelineIndex > startingTimelineIndex:
+                    newGroup = timeline.timelineGroups.add(startingTimelineIndex + 1, endingTimelineIndex)
+                    newGroup.name = f"Extrusion {profileName}"
+                    newGroup.isCollapsed = True
+            except:
+                # Silently fail if grouping doesn't work
+                pass
 
         except Exception as e:
             if ui:
