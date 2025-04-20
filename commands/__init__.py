@@ -2,19 +2,14 @@ import os
 import sys
 import importlib
 
-# Import only the modules that actually exist
-# The error showed you were trying to import modules like commandDialog that don't exist
-from .Extrusion import entry as extrusion_command
-
-# List of all commands in the add-in - only include what exists
-commands = [
-    extrusion_command
-]
-
 def start():
     try:
+        # Import the command modules
+        sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+        from AluminumExtrusion import entry as aluminum_extrusion_cmd
+        
         # Start the command
-        extrusion_command.start()
+        aluminum_extrusion_cmd.start()
     except Exception as e:
         import adsk.core
         ui = adsk.core.Application.get().userInterface
@@ -22,8 +17,12 @@ def start():
 
 def stop():
     try:
+        # Import the command modules
+        sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+        from AluminumExtrusion import entry as aluminum_extrusion_cmd
+        
         # Stop the command
-        extrusion_command.stop()
+        aluminum_extrusion_cmd.stop()
     except Exception as e:
         import adsk.core
         ui = adsk.core.Application.get().userInterface

@@ -20,7 +20,7 @@ def debug_log(message):
         app.log(message)
 
 # Command identity information
-CMD_ID = f'{config.COMPANY_NAME}_{config.ADDIN_NAME}_extrusion'
+CMD_ID = f'{config.COMPANY_NAME}_{config.ADDIN_NAME}_aluminum_extrusion'
 CMD_NAME = 'Aluminum Extrusion'
 CMD_DESC = 'Create aluminum extrusion profiles from DXF files'
 
@@ -30,8 +30,8 @@ PANEL_ID = 'SolidCreatePanel'            # Create panel
 COMMAND_BESIDE_ID = 'PrimitivePipe'      # Will be placed after the Pipe command
 IS_PROMOTED = True                       # Show in toolbar, not just in dropdown
 
-# Path to DXF files (parent directory)
-dxf_parent_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'dxf_profiles')
+# Path to DXF files (parent directory) - updated for new structure
+dxf_parent_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'dxf_profiles')
 
 # Series options
 SERIES_OPTIONS = ['2020', '3030', '4040']
@@ -278,10 +278,10 @@ class CommandCreatedHandler(adsk.core.CommandCreatedEventHandler):
             cmd.execute.add(onExecute)
             handlers.append(onExecute)
             
-            # Add event handler for input changes - connect to the command, not the dropdown
-            onSeriesChanged = SeriesSelectionChangedHandler()
-            cmd.inputChanged.add(onSeriesChanged)
-            handlers.append(onSeriesChanged)
+            # Add event handler for input changes - connect to the command
+            onInputChanged = SeriesSelectionChangedHandler()
+            cmd.inputChanged.add(onInputChanged)
+            handlers.append(onInputChanged)
 
         except Exception as e:
             if ui:
@@ -295,8 +295,27 @@ def start():
         if not cmdDef:
             cmdDef = ui.commandDefinitions.addButtonDefinition(CMD_ID, CMD_NAME, CMD_DESC)
         
-        # Set the icon for the command
-        resourceFolder = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'resources', 'Extrusion')
+        # Ensure resource folder exists and is valid
+        resourceFolder = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'resources')
+        if not os.path.exists(resourceFolder):
+            os.makedirs(resourceFolder, exist_ok=True)
+            print(f"Created missing resource folder: {resourceFolder}")
+        
+        # Make sure we have at least empty icon files
+        icon_sizes = ["16x16", "32x32", "64x64"]
+        for size in icon_sizes:
+            icon_path = os.path.join(resourceFolder, f"{size}.png")
+            if not os.path.exists(icon_path):
+                # Create a minimal valid PNG file (single pixel transparent) as a placeholder
+                try:
+                    # Try to create an empty icon - but if we can't, it's not critical
+                    with open(icon_path, 'wb') as f:
+                        # Minimal valid PNG file (1x1 transparent pixel)
+                        f.write(bytes.fromhex('89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4890000000d4944415478da6364000002000001e2908d580000000049454e44ae426082'))
+                except:
+                    pass
+        
+        # Set icon path (even if empty)
         cmdDef.resourceFolder = resourceFolder
         
         # Connect to command created event
@@ -313,14 +332,21 @@ def start():
                 control = panel.controls.itemById(CMD_ID)
                 if not control:
                     control = panel.controls.addCommand(cmdDef, COMMAND_BESIDE_ID, False)
-                    control.isPromoted = IS_PROMOTED
+                    if control:  # Ensure control was created successfully
+                        control.isPromoted = IS_PROMOTED
+                    else:
+                        ui.messageBox(f"Failed to add control to panel: {PANEL_ID}")
+            else:
+                ui.messageBox(f"Panel not found: {PANEL_ID}")
+        else:
+            ui.messageBox(f"Workspace not found: {WORKSPACE_ID}")
         
         if config.DEBUG:
             print(f'Aluminum Extrusion command created in CREATE panel.')
             
     except Exception as e:
         if ui:
-            ui.messageBox(f'Failed to start: {str(e)}')
+            ui.messageBox(f'Failed to start: {str(e)}\n\n{traceback.format_exc()}')
 
 
 def stop():
