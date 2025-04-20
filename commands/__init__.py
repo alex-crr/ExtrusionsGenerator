@@ -1,30 +1,30 @@
-# Here you define the commands that will be added to your add-in.
+import os
+import sys
+import importlib
 
-# TODO Import the modules corresponding to the commands you created.
-# If you want to add an additional command, duplicate one of the existing directories and import it here.
-# You need to use aliases (import "entry" as "my_module") assuming you have the default module named "entry".
-from .commandDialog import entry as commandDialog
-from .paletteShow import entry as paletteShow
-from .paletteSend import entry as paletteSend
+# Import only the modules that actually exist
+# The error showed you were trying to import modules like commandDialog that don't exist
+from .Extrusion import entry as extrusion_command
 
-# TODO add your imported modules to this list.
-# Fusion will automatically call the start() and stop() functions.
+# List of all commands in the add-in - only include what exists
 commands = [
-    commandDialog,
-    paletteShow,
-    paletteSend
+    extrusion_command
 ]
 
-
-# Assumes you defined a "start" function in each of your modules.
-# The start function will be run when the add-in is started.
 def start():
-    for command in commands:
-        command.start()
+    try:
+        # Start the command
+        extrusion_command.start()
+    except Exception as e:
+        import adsk.core
+        ui = adsk.core.Application.get().userInterface
+        ui.messageBox(f'Failed to start commands: {str(e)}')
 
-
-# Assumes you defined a "stop" function in each of your modules.
-# The stop function will be run when the add-in is stopped.
 def stop():
-    for command in commands:
-        command.stop()
+    try:
+        # Stop the command
+        extrusion_command.stop()
+    except Exception as e:
+        import adsk.core
+        ui = adsk.core.Application.get().userInterface
+        ui.messageBox(f'Failed to stop commands: {str(e)}')
