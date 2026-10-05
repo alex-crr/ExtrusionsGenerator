@@ -13,7 +13,7 @@ The add-in creates a component named `<series>_<profile>_<length mm>`, imports t
 ## Limits
 
 - Only the 2020 series ships. 3030 and 4040-series profiles are in progress on the `dev` branch.
-- Profiles are nominal-geometry DXFs. Check them against your supplier's drawing for tight-fit work.
+- Profiles are nominal-geometry DXFs, centred on the component origin. Check them against your supplier's drawing for tight-fit work.
 
 ## Install from source
 
