@@ -43,7 +43,7 @@ PACKAGE_CONTENTS = f"""<?xml version="1.0" encoding="utf-8"?>
     ProductCode="{PRODUCT_CODE}" UpgradeCode="{UPGRADE_CODE}">
   <CompanyDetails Name="{AUTHOR}" Url="{URL}" Email="{EMAIL}"/>
   <Components Description="Fusion 360 Add-in">
-    <RuntimeRequirements OS="Win64|MacOS" Platform="Fusion360" SeriesMin="" SeriesMax=""/>
+    <RuntimeRequirements OS="Win64" Platform="Fusion360" SeriesMin="" SeriesMax=""/>
     <ComponentEntry AppName="{MODULE}" ModuleName="./Contents/{MODULE}.py"
         AppType="addin" Version="{VERSION}" LoadOnFusionStartup="True"/>
   </Components>
