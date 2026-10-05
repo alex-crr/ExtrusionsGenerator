@@ -2,10 +2,10 @@
 import os
 
 # Debug mode
-DEBUG = True
+DEBUG = False
 
 # Add-in details
-COMPANY_NAME = "YourCompany"
+COMPANY_NAME = "Courrieu"
 ADDIN_NAME = "Extrusions"
 
 # Base paths

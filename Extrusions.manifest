@@ -1,0 +1,13 @@
+{
+    "autodeskProduct": "Fusion",
+    "type": "addin",
+    "id": "6d3611f2-2730-4562-acc6-909c1eff0953",
+    "author": "Alexandre Courrieu",
+    "description": {
+        "": "Insert 20-series aluminium extrusion profiles (2020, 2040, 2060, 2080, 4040, C-beam 4080) at a chosen length."
+    },
+    "version": "1.0.0",
+    "runOnStartup": true,
+    "supportedOS": "windows|mac",
+    "editEnabled": true
+}

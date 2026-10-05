@@ -2,12 +2,10 @@ import adsk.core
 import adsk.fusion
 import adsk.cam
 import os
-import sys
 import traceback
 
-# Use absolute imports instead of relative
-sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-import config
+# Relative import: a bare `import config` can pick up another add-in's module.
+from ... import config
 
 # Global variables
 app = adsk.core.Application.get()
@@ -34,7 +32,7 @@ IS_PROMOTED = True                       # Show in toolbar, not just in dropdown
 dxf_parent_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'dxf_profiles')
 
 # Series options
-SERIES_OPTIONS = ['2020', '3030', '4040']
+SERIES_OPTIONS = ['2020']  # ponytail: 3030/4040 DXFs live on the dev branch until profiles exist
 
 
 class CommandExecuteHandler(adsk.core.CommandEventHandler):
@@ -188,14 +186,12 @@ class SeriesSelectionChangedHandler(adsk.core.InputChangedEventHandler):
                 selectedSeries = seriesInput.selectedItem.name
                 seriesDir = os.path.join(dxf_parent_dir, selectedSeries)
                 
-                # Check if series directory exists
-                if not os.path.exists(seriesDir):
-                    os.makedirs(seriesDir)
-                    ui.messageBox(f'Created series directory at: {seriesDir}\nPlease add your DXF profiles for {selectedSeries} series there.')
+                if not os.path.isdir(seriesDir):
+                    ui.messageBox(f'No profiles installed for the {selectedSeries} series.')
                     return
                 
                 # Populate profile dropdown with DXF files from the selected series
-                dxf_files = [f for f in os.listdir(seriesDir) if f.endswith('.dxf')]
+                dxf_files = sorted(f for f in os.listdir(seriesDir) if f.endswith('.dxf'))
                 
                 if dxf_files:
                     for filename in dxf_files:
@@ -222,17 +218,6 @@ class CommandCreatedHandler(adsk.core.CommandCreatedEventHandler):
             cmd = adsk.core.Command.cast(args.command)
             inputs = cmd.commandInputs
 
-            # Create main dxf_profiles directory if it doesn't exist
-            if not os.path.exists(dxf_parent_dir):
-                os.makedirs(dxf_parent_dir)
-                
-                # Create series subfolders
-                for series in SERIES_OPTIONS:
-                    os.makedirs(os.path.join(dxf_parent_dir, series), exist_ok=True)
-                
-                ui.messageBox(f'Created DXF profiles directories at: {dxf_parent_dir}\nPlease add your DXF profiles to the appropriate series folders.')
-                return
-
             # Create series dropdown
             seriesDropdown = inputs.addDropDownCommandInput('series', 'Series', adsk.core.DropDownStyles.TextListDropDownStyle)
             seriesItems = seriesDropdown.listItems
@@ -255,13 +240,11 @@ class CommandCreatedHandler(adsk.core.CommandCreatedEventHandler):
             selectedSeries = seriesItems.item(0).name
             seriesDir = os.path.join(dxf_parent_dir, selectedSeries)
             
-            # Create series directory if it doesn't exist
-            if not os.path.exists(seriesDir):
-                os.makedirs(seriesDir)
-                ui.messageBox(f'Created series directory at: {seriesDir}\nPlease add your DXF profiles for {selectedSeries} series there.')
+            if not os.path.isdir(seriesDir):
+                ui.messageBox(f'No profiles installed for the {selectedSeries} series. Reinstall the add-in.')
             else:
                 # Add profiles from selected series
-                dxf_files = [f for f in os.listdir(seriesDir) if f.endswith('.dxf')]
+                dxf_files = sorted(f for f in os.listdir(seriesDir) if f.endswith('.dxf'))
                 
                 if dxf_files:
                     for filename in dxf_files:
