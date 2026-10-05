@@ -11,10 +11,7 @@ def run(context):
         
         # Start the commands
         commands.start()
-        
-        # More helpful message about where to find the command
-        if not context['IsApplicationStartup']:
-            ui.messageBox('Aluminum Extrusion add-in loaded in the CREATE panel of the SOLID workspace', 'Aluminum Extrusion')
+
             
     except Exception as e:
         app = adsk.core.Application.get()
