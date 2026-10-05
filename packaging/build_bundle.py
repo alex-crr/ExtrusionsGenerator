@@ -19,7 +19,7 @@ with open(os.path.join(ROOT, MODULE + ".manifest"), encoding="utf-8") as _f:
 
 APP_NAME = "Aluminium Extrusions"
 AUTHOR = "Alexandre Courrieu"
-EMAIL = "alexandre@courrieu.com"
+EMAIL = "alexandre@courri.eu"
 URL = "https://github.com/alex-crr/ExtrusionsGenerator"
 DESCRIPTION = "Insert 20-series aluminium extrusion profiles at a chosen length."
 
