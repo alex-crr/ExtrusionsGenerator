@@ -216,6 +216,7 @@ class CommandCreatedHandler(adsk.core.CommandCreatedEventHandler):
     def notify(self, args):
         try:
             cmd = adsk.core.Command.cast(args.command)
+            cmd.helpFile = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), 'help.html')
             inputs = cmd.commandInputs
 
             # Create series dropdown

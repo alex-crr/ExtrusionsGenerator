@@ -34,6 +34,7 @@ CONTENTS = [
     "commands/__init__.py", "commands/Extrusion/__init__.py", "commands/Extrusion/entry.py",
     "resources/Extrusion/16x16-normal.png", "resources/Extrusion/32x32-normal.png",
     "resources/Extrusion/64x64-normal.png",
+    "help.html",
 ] + ["dxf_profiles/2020/" + f for f in sorted(os.listdir(os.path.join(ROOT, "dxf_profiles", "2020")))]
 
 PACKAGE_CONTENTS = f"""<?xml version="1.0" encoding="utf-8"?>
